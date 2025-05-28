@@ -1,0 +1,14 @@
+[project]
+name = "agno-modal-deploy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "agno>=1.5.4",
+    "fastapi>=0.115.12",
+    "modal>=1.0.2",
+    "openai>=1.82.0",
+    "uvicorn>=0.34.2",
+    "yfinance>=0.2.61",
+]
