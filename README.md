@@ -354,44 +354,6 @@ curl -X POST https://your-url.modal.run/v1/run \
    ```
    **Solution**: Create `.env` file with your API keys
 
-### Debug Mode
-
-View deployment logs in real-time:
-
-```bash
-# View logs during development
-modal serve agno_modal_deploy.py
-
-# View logs for deployed app
-modal logs financial-agent-app
-```
-
-## 🎉 Benefits of This Approach
-
-### For Developers
-
-- ✅ **Zero configuration** - Works out of the box
-- ✅ **Reusable** - Same script for any Agno agent
-- ✅ **Automatic scaling** - Handles traffic spikes seamlessly
-- ✅ **Cost effective** - Pay only for actual usage
-- ✅ **Fast deployment** - From code to production in minutes
-
-### For Production
-
-- ✅ **Serverless** - No infrastructure management
-- ✅ **Auto-scaling** - 0 to 1000+ requests automatically
-- ✅ **Global CDN** - Fast response times worldwide
-- ✅ **Monitoring** - Built-in metrics and logging
-- ✅ **Security** - Encrypted secrets and HTTPS by default
-
-## 📚 Next Steps
-
-1. **Try the example**: Deploy the included financial agent
-2. **Create your own agent**: Follow the agent creation pattern
-3. **Customize deployment**: Adjust settings for your use case
-4. **Scale up**: Add more features and deploy to production
-5. **Monitor**: Use Modal's dashboard to track usage and performance
-
 ## 🤝 Contributing
 
 Feel free to improve this deployment script or add more examples! The goal is to make Agno agent deployment as simple as possible for everyone.
