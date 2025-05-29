@@ -2,6 +2,10 @@
 
 This repository demonstrates how to easily deploy any Agno agent to Modal cloud platform using a generic deployment script. The `agno_modal_deploy.py` script handles all the complexity of Modal deployment, making it simple to get your Agno agents running in the cloud.
 
+## 📊 Deployment Overview
+
+![Agno Modal Deployment Process](agno_modal_deploy.png)
+
 ## 🎯 What You'll Learn
 
 - How to deploy Agno agents to Modal in minutes
@@ -79,7 +83,7 @@ cp .example.env .env
 
 # Edit .env and replace placeholder values with your actual API keys
 # .env
-OPENAI_API_KEY=sk-your-actual-openai-key-here
+OPENAI_API_KEY=sk-your-actual-openai-key
 ANTHROPIC_API_KEY=your-actual-anthropic-key
 GROQ_API_KEY=your-actual-groq-key
 # ... add other API keys as needed
