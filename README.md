@@ -4,13 +4,16 @@ This repository demonstrates how to easily deploy any Agno agent to Modal cloud 
 
 ## 📊 Deployment Overview
 
+The deployment process is straightforward: the script takes your Agno agent, packages it with all dependencies, and deploys it to Modal's cloud platform. Your agent becomes instantly available via a REST API endpoint, ready to handle requests from anywhere.
+
+
 ![Agno Modal Deployment Process](agno_modal_deploy.png)
 
 ## 🎥 See It In Action
 
-![Agno Modal Deployment Demo](agno_modal_deploy.gif)
+Check out this quick demo of deploying a financial analysis agent to Modal. The deployment takes just seconds, and you can start making API calls right away!
 
-*Watch the deployment script running. Just a few seconds to deploy the Agent to Modal.com Cloud platform!*
+![Agno Modal Deployment Demo](agno_modal_deploy.gif)
 
 ## 🎯 What You'll Learn
 
