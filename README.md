@@ -8,11 +8,11 @@ This repository demonstrates how to easily deploy any Agno agent to Modal cloud 
 
 ## 🎥 See It In Action
 
-https://github.com/user-attachments/assets/agno_modal_deploy.mp4
+**[📹 Watch Deployment Demo Video](agno_modal_deploy.mp4)**
 
-*Watch the deployment script running. Just a few seconds to deploy the Agent to Modal.com Cloud platform!*
+*Click to download and watch the deployment script running. Just a few seconds to deploy the Agent to Modal.com Cloud platform!*
 
-## �� What You'll Learn
+## 🎯 What You'll Learn
 
 - How to deploy Agno agents to Modal in minutes
 - How to use the generic `agno_modal_deploy.py` script for any agent
