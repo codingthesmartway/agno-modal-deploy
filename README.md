@@ -100,6 +100,44 @@ GROQ_API_KEY=your-actual-groq-key
 
 **Note**: The `.example.env` file contains placeholder values and is safe to commit to git. Your actual `.env` file with real API keys should never be committed (it's already in `.gitignore`).
 
+### Step 3.5: Configure Authentication (Optional)
+
+For production deployments, you can enable token-based authentication to protect your API:
+
+**1. Enable authentication in the deployment script:**
+```python
+# In agno_modal_deploy.py - CONFIGURATION section
+ENABLE_AUTH = True   # Set to False to disable authentication
+PROTECT_DOCS = True  # Set to False to make /docs publicly accessible
+```
+
+**2. Add your authentication token to .env:**
+```bash
+# Add to your .env file
+AUTH_TOKEN=your-super-secret-deployment-token-here
+```
+
+**Important**: The deployment script validates your authentication configuration at deployment time. If you enable authentication but forget to add the token, the deployment will fail immediately with a helpful error message.
+
+**Authentication Features:**
+- ✅ **Bearer Token Authentication** - Standard HTTP authentication
+- ✅ **Configurable Docs Protection** - Optionally protect /docs and /redoc
+- ✅ **Health Check Always Public** - /health endpoint remains unprotected for monitoring
+- ✅ **Zero Agent Changes** - Authentication is handled at deployment level
+- ✅ **Secure Configuration** - Only sensitive token stored as secret
+
+**Usage with Authentication:**
+```bash
+# Making authenticated requests
+curl -X POST https://your-deployment-url.modal.run/v1/run \
+  -H "Authorization: Bearer your-super-secret-deployment-token-here" \
+  -F "message=What is the current stock price of AAPL?" \
+  -F "stream=false"
+
+# Health check (always public)
+curl https://your-deployment-url.modal.run/health
+```
+
 ### Step 4: Configure Deployment Script
 
 Edit the `AGENT_FILE` variable in `agno_modal_deploy.py`:
@@ -264,7 +302,7 @@ Once deployed, Modal provides you with a public URL. You can interact with your 
 ### Example API Usage
 
 ```bash
-# Basic chat request
+# Basic chat request (add -H "Authorization: Bearer your-token" if auth is enabled)
 curl -X POST https://your-deployment-url.modal.run/v1/run \
   -F "message=What is the current stock price of AAPL?" \
   -F "stream=false"
@@ -281,6 +319,11 @@ curl -X POST https://your-deployment-url.modal.run/v1/run \
   -F "session_id=my-session-123"
 ```
 
+**Note**: If you enabled authentication (`ENABLE_AUTH=True`), add the authorization header to all requests:
+```bash
+-H "Authorization: Bearer your-super-secret-deployment-token-here"
+```
+
 ### Python Client Example
 
 ```python
@@ -289,9 +332,13 @@ import requests
 # Your Modal deployment URL
 BASE_URL = "https://your-deployment-url.modal.run"
 
+# Headers for authentication (if enabled)
+headers = {"Authorization": "Bearer your-super-secret-deployment-token-here"}
+
 # Send a message to your agent
 response = requests.post(
     f"{BASE_URL}/v1/run",
+    headers=headers,  # Add this if authentication is enabled
     files={
         "message": (None, "What are the top tech stocks to watch?"),
         "stream": (None, "false")
@@ -366,6 +413,24 @@ curl -X POST https://your-url.modal.run/v1/run \
    ⚠️ Warning: No .env file found during deployment
    ```
    **Solution**: Create `.env` file with your API keys
+
+5. **Authentication configuration errors**
+   ```
+   ❌ Authentication is enabled but no .env file found
+   ```
+   **Solution**: Create `.env` file with `AUTH_TOKEN=your-token` or set `ENABLE_AUTH=False`
+
+6. **Missing authentication token**
+   ```
+   ❌ AUTH_TOKEN not found in .env file
+   ```
+   **Solution**: Add `AUTH_TOKEN=your-secret-token` to your `.env` file
+
+7. **Commented authentication token**
+   ```
+   ❌ AUTH_TOKEN is commented out in .env file
+   ```
+   **Solution**: Uncomment the `AUTH_TOKEN` line in your `.env` file
 
 ## 🤝 Contributing
 
