@@ -4,11 +4,18 @@ Generic Modal deployment script for Agno agents using FastAPIApp.
 This script deploys any Agno agent to Modal. Simply edit the AGENT_FILE
 variable below to point to your agent implementation file.
 
+The script supports multiple agent patterns:
+1. Function returning FastAPIApp (e.g., create_fastapi_app())
+2. Function returning Agent (e.g., create_agent())  
+3. Direct Agent variable export (e.g., agent = Agent(...))
+4. Direct FastAPIApp variable export (e.g., app = FastAPIApp(...))
+
 Features:
 - Automatic dependency management from requirements.txt
 - Optional environment variable injection from .env
 - Optional token-based authentication
 - Auto-scaling and production-ready configuration
+- Flexible agent detection with multiple patterns
 
 Usage:
     1. Edit AGENT_FILE variable below
@@ -21,9 +28,10 @@ import os
 from pathlib import Path
 
 # ============================================================================
-# CONFIGURATION - Edit this to point to your agent implementation file
+# CONFIGURATION 
 # ============================================================================
-AGENT_FILE = "financial_agent_app.py"  
+# Edit this to point to your agent implementation file
+AGENT_FILE = "agno_agents/financial_agent_app.py"
 # Authentication Configuration
 ENABLE_AUTH = False   # Set to False to disable authentication
 PROTECT_DOCS = False  # Set to False to make /docs publicly accessible
@@ -41,7 +49,16 @@ if not agent_file_path.exists():
 
 # Extract configuration from the filename
 APP_NAME = agent_file_path.stem  # filename without .py extension
-AGENT_MODULE = APP_NAME
+
+# Convert file path to proper Python module import path
+# e.g., "agno-examples/financial_agent_app.py" -> "agno-examples.financial_agent_app"
+if agent_file_path.parent != Path('.'):
+    # File is in a subdirectory, create module path with dots
+    module_parts = list(agent_file_path.parent.parts) + [agent_file_path.stem]
+    AGENT_MODULE = '.'.join(module_parts)
+else:
+    # File is in root directory
+    AGENT_MODULE = APP_NAME
 
 print(f"🤖 Agent file: {agent_file_path}")
 print(f"📦 Modal app name: {APP_NAME}")
@@ -192,6 +209,123 @@ image = (
     .add_local_dir(".", remote_path="/root")  # Include local files
 )
 
+def detect_agent_pattern(agent_module):
+    """
+    Detect and validate agent patterns in the module with priority-based selection.
+    
+    Priority order:
+    1. Function returning FastAPIApp (e.g., create_fastapi_app())
+    2. Function returning Agent (e.g., create_agent(), create_financial_agent())
+    3. Direct FastAPIApp variable export
+    4. Direct Agent variable export
+    
+    Returns:
+        tuple: (pattern_type, callable_or_object, pattern_name)
+        pattern_type: 'fastapi_function', 'agent_function', 'fastapi_variable', 'agent_variable'
+    """
+    from agno.agent import Agent
+    from agno.app.fastapi.app import FastAPIApp
+    import inspect
+    
+    # Get explicitly exported items if __all__ is defined
+    if hasattr(agent_module, '__all__'):
+        available_names = agent_module.__all__
+        print(f"🔍 Found __all__ export list: {available_names}")
+    else:
+        # Get all non-private attributes
+        available_names = [name for name in dir(agent_module) if not name.startswith('_')]
+    
+    # Collect candidates for each pattern
+    fastapi_functions = []
+    agent_functions = []
+    fastapi_variables = []
+    agent_variables = []
+    
+    for name in available_names:
+        try:
+            obj = getattr(agent_module, name)
+            
+            # Check if it's a callable (function) defined in this module
+            if callable(obj) and not inspect.isclass(obj):
+                # Only consider functions defined in this module (not imports)
+                if hasattr(obj, '__module__') and obj.__module__ == agent_module.__name__:
+                    func_name_lower = name.lower()
+                    
+                    # Check for FastAPIApp function patterns (more specific matching)
+                    if name == 'create_fastapi_app' or (
+                        'fastapi' in func_name_lower and 'app' in func_name_lower and name.startswith('create')
+                    ):
+                        fastapi_functions.append((name, obj))
+                    # Check for Agent function patterns  
+                    elif (
+                        'agent' in func_name_lower and name.startswith('create')
+                    ) or name == 'create_agent':
+                        agent_functions.append((name, obj))
+                
+            # Check if it's a direct instance
+            elif isinstance(obj, FastAPIApp):
+                fastapi_variables.append((name, obj))
+            elif isinstance(obj, Agent):
+                agent_variables.append((name, obj))
+                
+        except Exception as e:
+            # Skip any attributes that can't be accessed
+            print(f"  ⚠️  Skipping {name}: {e}")
+            continue
+    
+    # Report findings
+    if fastapi_functions:
+        print(f"🎯 Found FastAPIApp functions: {[name for name, _ in fastapi_functions]}")
+    if agent_functions:
+        print(f"🤖 Found Agent functions: {[name for name, _ in agent_functions]}")
+    if fastapi_variables:
+        print(f"📱 Found FastAPIApp variables: {[name for name, _ in fastapi_variables]}")
+    if agent_variables:
+        print(f"🔧 Found Agent variables: {[name for name, _ in agent_variables]}")
+    
+    # Priority-based selection
+    # 1. Function returning FastAPIApp (highest priority)
+    if fastapi_functions:
+        if len(fastapi_functions) > 1:
+            names = [name for name, _ in fastapi_functions]
+            raise ValueError(f"❌ Multiple FastAPIApp functions found: {names}. Please export only one using __all__ = ['{names[0]}']")
+        name, func = fastapi_functions[0]
+        return 'fastapi_function', func, name
+    
+    # 2. Function returning Agent
+    if agent_functions:
+        if len(agent_functions) > 1:
+            names = [name for name, _ in agent_functions]
+            raise ValueError(f"❌ Multiple Agent functions found: {names}. Please export only one using __all__ = ['{names[0]}']")
+        name, func = agent_functions[0]
+        return 'agent_function', func, name
+    
+    # 3. Direct FastAPIApp variable
+    if fastapi_variables:
+        if len(fastapi_variables) > 1:
+            names = [name for name, _ in fastapi_variables]
+            raise ValueError(f"❌ Multiple FastAPIApp variables found: {names}. Please export only one using __all__ = ['{names[0]}']")
+        name, var = fastapi_variables[0]
+        return 'fastapi_variable', var, name
+    
+    # 4. Direct Agent variable (lowest priority)
+    if agent_variables:
+        if len(agent_variables) > 1:
+            names = [name for name, _ in agent_variables]
+            raise ValueError(f"❌ Multiple Agent variables found: {names}. Please export only one using __all__ = ['{names[0]}']")
+        name, var = agent_variables[0]
+        return 'agent_variable', var, name
+    
+    # No valid patterns found
+    raise ImportError(
+        f"❌ No valid agent pattern found in '{AGENT_MODULE}'. Supported patterns:\n"
+        f"   1. Function returning FastAPIApp (e.g., def create_fastapi_app() -> FastAPIApp)\n"
+        f"   2. Function returning Agent (e.g., def create_agent() -> Agent)\n"
+        f"   3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agent))\n"
+        f"   4. Direct Agent variable (e.g., agent = Agent(...))\n"
+        f"   Use __all__ = ['function_or_variable_name'] to specify which to use if multiple exist."
+    )
+
 @app.function(
     image=image,
     # Deployment configuration - adjust based on your needs
@@ -207,12 +341,17 @@ image = (
 @modal.asgi_app()
 def fastapi_app():
     """
-    Auto-configured Modal deployment function for Agno agents using FastAPIApp.
+    Auto-configured Modal deployment function for Agno agents.
     
     This function automatically detects and imports your agent implementation,
-    expecting a self-contained create_fastapi_app() function.
+    supporting multiple patterns:
+    1. Function returning FastAPIApp
+    2. Function returning Agent  
+    3. Direct FastAPIApp variable export
+    4. Direct Agent variable export
     """
     import importlib
+    from agno.agent import Agent
     from agno.app.fastapi.app import FastAPIApp
     
     # Warn if secrets weren't available during deployment
@@ -305,66 +444,98 @@ def fastapi_app():
         # Dynamically import the agent module
         agent_module = importlib.import_module(AGENT_MODULE)
         
-        # Expect a self-contained create_fastapi_app() function
-        if hasattr(agent_module, 'create_fastapi_app'):
-            print(f"🚀 Loading agent from {AGENT_MODULE}.create_fastapi_app()")
-            fastapi_app = agent_module.create_fastapi_app()
+        # Detect the agent pattern
+        pattern_type, pattern_object, pattern_name = detect_agent_pattern(agent_module)
+        print(f"🎯 Detected pattern: {pattern_type} ({pattern_name})")
+        
+        # Handle different patterns
+        if pattern_type == 'fastapi_function':
+            # Function returning FastAPIApp
+            print(f"🚀 Loading FastAPIApp from {AGENT_MODULE}.{pattern_name}()")
+            fastapi_app_instance = pattern_object()
             
-            if not isinstance(fastapi_app, FastAPIApp):
-                raise TypeError(f"create_fastapi_app() must return a FastAPIApp instance, got {type(fastapi_app)}")
+            if not isinstance(fastapi_app_instance, FastAPIApp):
+                raise TypeError(f"{pattern_name}() must return a FastAPIApp instance, got {type(fastapi_app_instance)}")
             
-            # Get the FastAPI instance
-            app_instance = fastapi_app.get_app()
+            app_instance = fastapi_app_instance.get_app()
             
-            # Apply token-based authentication if enabled
-            if ENABLE_AUTH:
-                # Load AUTH_TOKEN from environment (validated at deployment time)
-                AUTH_TOKEN = os.getenv("AUTH_TOKEN")
-                
-                print(f"🔒 Adding authentication middleware")
-                
-                # Add security scheme to show lock symbol in docs
-                from fastapi.security import HTTPBearer
-                from fastapi import Depends
-                
-                # Create security scheme
-                security = HTTPBearer(auto_error=False, description="Enter your authentication token")
-                
-                # Add security dependency to ALL existing routes to show lock symbols
-                from fastapi.dependencies.utils import get_dependant
-                
-                for route in app_instance.routes:
-                    # Only process API routes (not static files, etc.)
-                    if hasattr(route, 'dependant') and hasattr(route, 'path'):
-                        # Skip public endpoints
-                        if route.path in {"/health", "/openapi.json"}:
-                            continue
-                        if not PROTECT_DOCS and route.path in {"/docs", "/redoc"}:
-                            continue
-                        
-                        # Add security dependency to show lock symbol
-                        def auth_dep(token: str = Depends(security)):
-                            return token
-                        
-                        security_dependant = get_dependant(path=route.path, call=auth_dep)
-                        
-                        # Add to route's dependencies
-                        if hasattr(route.dependant, 'dependencies'):
-                            route.dependant.dependencies.append(security_dependant)
-                
-                # Force regenerate OpenAPI schema to include the security scheme
-                app_instance.openapi_schema = None
-                
-                # Wrap the app with ASGI middleware (this does the actual auth)
-                app_instance = TokenAuthMiddleware(app_instance, token=AUTH_TOKEN, protect_docs=PROTECT_DOCS)
+        elif pattern_type == 'agent_function':
+            # Function returning Agent
+            print(f"🚀 Loading Agent from {AGENT_MODULE}.{pattern_name}() and wrapping in FastAPIApp")
+            agent_instance = pattern_object()
             
-            return app_instance
+            if not isinstance(agent_instance, Agent):
+                raise TypeError(f"{pattern_name}() must return an Agent instance, got {type(agent_instance)}")
+            
+            # Wrap agent in FastAPIApp
+            fastapi_app_instance = FastAPIApp(agent=agent_instance)
+            app_instance = fastapi_app_instance.get_app()
+            
+        elif pattern_type == 'fastapi_variable':
+            # Direct FastAPIApp variable
+            print(f"🚀 Loading FastAPIApp from {AGENT_MODULE}.{pattern_name}")
+            fastapi_app_instance = pattern_object
+            app_instance = fastapi_app_instance.get_app()
+            
+        elif pattern_type == 'agent_variable':
+            # Direct Agent variable
+            print(f"🚀 Loading Agent from {AGENT_MODULE}.{pattern_name} and wrapping in FastAPIApp")
+            agent_instance = pattern_object
+            
+            # Wrap agent in FastAPIApp
+            fastapi_app_instance = FastAPIApp(agent=agent_instance)
+            app_instance = fastapi_app_instance.get_app()
+            
         else:
-            raise ImportError(f"Agent module '{AGENT_MODULE}' must have a 'create_fastapi_app()' function that returns a FastAPIApp instance")
-    
+            raise ValueError(f"Unknown pattern type: {pattern_type}")
+        
+        # Apply token-based authentication if enabled
+        if ENABLE_AUTH:
+            # Load AUTH_TOKEN from environment (validated at deployment time)
+            AUTH_TOKEN = os.getenv("AUTH_TOKEN")
+            
+            print(f"🔒 Adding authentication middleware")
+            
+            # Add security scheme to show lock symbol in docs
+            from fastapi.security import HTTPBearer
+            from fastapi import Depends
+            
+            # Create security scheme
+            security = HTTPBearer(auto_error=False, description="Enter your authentication token")
+            
+            # Add security dependency to ALL existing routes to show lock symbols
+            from fastapi.dependencies.utils import get_dependant
+            
+            for route in app_instance.routes:
+                # Only process API routes (not static files, etc.)
+                if hasattr(route, 'dependant') and hasattr(route, 'path'):
+                    # Skip public endpoints
+                    if route.path in {"/health", "/openapi.json"}:
+                        continue
+                    if not PROTECT_DOCS and route.path in {"/docs", "/redoc"}:
+                        continue
+                    
+                    # Add security dependency to show lock symbol
+                    def auth_dep(token: str = Depends(security)):
+                        return token
+                    
+                    security_dependant = get_dependant(path=route.path, call=auth_dep)
+                    
+                    # Add to route's dependencies
+                    if hasattr(route.dependant, 'dependencies'):
+                        route.dependant.dependencies.append(security_dependant)
+            
+            # Force regenerate OpenAPI schema to include the security scheme
+            app_instance.openapi_schema = None
+            
+            # Wrap the app with ASGI middleware (this does the actual auth)
+            app_instance = TokenAuthMiddleware(app_instance, token=AUTH_TOKEN, protect_docs=PROTECT_DOCS)
+        
+        return app_instance
+        
     except ImportError as e:
         print(f"❌ Failed to import agent module '{AGENT_MODULE}': {e}")
-        print(f"   Make sure the file '{AGENT_MODULE}.py' exists and has a create_fastapi_app() function")
+        print(f"   Make sure the file '{AGENT_MODULE}.py' exists and has a valid agent pattern")
         raise
     except Exception as e:
         print(f"❌ Error creating FastAPI app: {e}")

@@ -7,20 +7,80 @@ This repository demonstrates how to easily deploy any Agno agent to Modal cloud 
 The deployment process is straightforward: the script takes your Agno agent, packages it with all dependencies, and deploys it to Modal's cloud platform. Your agent becomes instantly available via a REST API endpoint, ready to handle requests from anywhere.
 
 
-![Agno Modal Deployment Process](agno_modal_deploy.png)
+![Agno Modal Deployment Process](media/agno_modal_deploy.png)
 
 ## 🎥 See It In Action
 
 Check out this quick demo of deploying a financial analysis agent to Modal. The deployment takes just seconds, and you can start making API calls right away!
 
-![Agno Modal Deployment Demo](agno_modal_deploy.gif)
+![Agno Modal Deployment Demo](media/agno_modal_deploy.gif)
 
 ## 🎯 What You'll Learn
 
 - How to deploy Agno agents to Modal in minutes
 - How to use the generic `agno_modal_deploy.py` script for any agent
+- Multiple supported agent patterns for maximum flexibility
 - How to manage dependencies and secrets automatically
 - How to interact with your deployed agent via API
+
+## 🔧 Supported Agno Agent Patterns
+
+The deployment script supports **4 different Agno agent patterns** with automatic detection. This gives you maximum flexibility in how you structure your Agno agent code:
+
+### Pattern 1: Function returning FastAPIApp (Highest Priority)
+```python
+def create_fastapi_app() -> FastAPIApp:
+    """Create a complete FastAPI app with agent"""
+    agent = Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
+    return FastAPIApp(agent=agent)
+```
+
+### Pattern 2: Function returning Agent (Second Priority)
+```python
+def create_agent() -> Agent:
+    """Create an agent - will be auto-wrapped in FastAPIApp"""
+    return Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
+```
+
+### Pattern 3: Direct FastAPIApp variable (Third Priority)
+```python
+# Direct FastAPIApp instance
+agent = Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
+app = FastAPIApp(agent=agent)
+```
+
+### Pattern 4: Direct Agent variable (Lowest Priority)
+```python
+# Direct Agent instance - will be auto-wrapped in FastAPIApp
+agent = Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
+```
+
+### Resolving Ambiguity with `__all__`
+
+If your file has multiple patterns, use Python's `__all__` to specify which one to use:
+
+```python
+def create_fastapi_app() -> FastAPIApp: ...
+def create_agent() -> Agent: ...
+agent = Agent(...)
+app = FastAPIApp(agent=agent)
+
+# Explicitly specify which pattern to use
+__all__ = ['create_agent']  # Use the function returning Agent
+```
+
+## 📁 Pattern Examples
+
+This repository includes complete working examples for all patterns in the [`agno_agents/`](agno_agents/) directory:
+
+- `agno_agents/financial_agent_app.py` - Original example (Pattern 1)
+- `agno_agents/financial_agent_app_function_fastapi.py` - Pattern 1 demo
+- `agno_agents/financial_agent_app_function_agent.py` - Pattern 2 demo  
+- `agno_agents/financial_agent_app_variable_fastapi.py` - Pattern 3 demo
+- `agno_agents/financial_agent_app_variable_agent.py` - Pattern 4 demo
+- `agno_agents/financial_agent_app_multiple_patterns.py` - Ambiguity resolution demo
+
+See the [agno_agents README](agno_agents/README.md) for detailed information about each example.
 
 ## 📋 Prerequisites
 
@@ -42,8 +102,9 @@ modal setup
 
 ### Step 1: Prepare Your Agent
 
-Your Agno agent file must have a `create_fastapi_app()` function that returns a `FastAPIApp` instance:
+Choose any of the 4 supported patterns. Here are examples for each:
 
+#### Pattern 1: Function returning FastAPIApp (Recommended)
 ```python
 # your_agent.py
 from agno.agent import Agent
@@ -53,18 +114,71 @@ from agno.models.openai import OpenAIChat
 def create_fastapi_app() -> FastAPIApp:
     """
     Create a FastAPI app with your agent.
-    This function must be self-contained and handle both agent creation
-    and FastAPI app setup.
+    This is the most flexible pattern with full control.
     """
-    # Create your agent
     agent = Agent(
         name="Your Agent",
         model=OpenAIChat(id="gpt-4o"),
         # ... your agent configuration
     )
     
-    # Create and return FastAPI app
     return FastAPIApp(agent=agent)
+```
+
+#### Pattern 2: Function returning Agent (Simplest)
+```python
+# your_agent.py  
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+
+def create_agent() -> Agent:
+    """
+    Create an agent - will be automatically wrapped in FastAPIApp.
+    This is the simplest pattern for basic deployments.
+    """
+    return Agent(
+        name="Your Agent", 
+        model=OpenAIChat(id="gpt-4o"),
+        # ... your agent configuration
+    )
+```
+
+#### Pattern 3: Direct FastAPIApp variable
+```python
+# your_agent.py
+from agno.agent import Agent
+from agno.app.fastapi.app import FastAPIApp
+from agno.models.openai import OpenAIChat
+
+# Create agent
+agent = Agent(
+    name="Your Agent",
+    model=OpenAIChat(id="gpt-4o"),
+    # ... your agent configuration  
+)
+
+# Direct FastAPIApp instance
+app = FastAPIApp(agent=agent)
+
+# Optional: Explicit export
+__all__ = ['app']
+```
+
+#### Pattern 4: Direct Agent variable
+```python
+# your_agent.py
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+
+# Direct Agent instance - will be auto-wrapped in FastAPIApp
+agent = Agent(
+    name="Your Agent",
+    model=OpenAIChat(id="gpt-4o"),
+    # ... your agent configuration
+)
+
+# Optional: Explicit export
+__all__ = ['agent']
 ```
 
 ### Step 2: Create Dependencies File
@@ -147,6 +261,8 @@ Edit the `AGENT_FILE` variable in `agno_modal_deploy.py`:
 # CONFIGURATION - Edit this to point to your agent implementation file
 # ============================================================================
 AGENT_FILE = "your_agent.py"  # Change this to your agent file
+# Or use one of the examples:
+# AGENT_FILE = "agno_agents/financial_agent_app.py"
 # ============================================================================
 ```
 
@@ -168,11 +284,51 @@ That's it! Your agent is now deployed and accessible via a public URL.
 
 The `agno_modal_deploy.py` script is a generic deployment solution that:
 
-1. **Auto-detects your agent** from the `AGENT_FILE` configuration
+1. **Auto-detects your agent** from the `AGENT_FILE` configuration using priority-based pattern detection
 2. **Loads dependencies** dynamically from `requirements.txt`
 3. **Manages secrets** automatically from `.env` file
 4. **Configures Modal** with optimal settings for Agno agents
 5. **Deploys your agent** as a scalable web service
+
+### How Agent Detection Works
+
+The script uses a sophisticated detection system with the following priority order:
+
+#### 1. Function returning FastAPIApp (Highest Priority)
+- Looks for functions with names containing "fastapi" and "app"
+- Specifically recognizes `create_fastapi_app()`
+- Provides full control over FastAPI configuration
+
+#### 2. Function returning Agent (Second Priority)  
+- Looks for functions with names containing "agent" or starting with "create_"
+- Automatically wraps the returned Agent in FastAPIApp
+- Simplest pattern for basic deployments
+
+#### 3. Direct FastAPIApp variable (Third Priority)
+- Looks for module-level variables that are FastAPIApp instances
+- Uses the instance directly without modification
+
+#### 4. Direct Agent variable (Lowest Priority)
+- Looks for module-level variables that are Agent instances  
+- Automatically wraps the Agent in FastAPIApp
+
+#### Ambiguity Resolution
+When multiple patterns exist in the same file, the deployment fails with a helpful error message:
+
+```
+❌ Multiple Agent functions found: ['create_agent', 'create_financial_agent']. 
+   Please export only one using __all__ = ['create_agent']
+```
+
+Use Python's `__all__` to explicitly specify which pattern to use:
+
+```python
+def create_agent() -> Agent: ...
+def create_financial_agent() -> Agent: ...
+
+# Explicitly choose which function to use
+__all__ = ['create_agent']
+```
 
 ### How It Works
 
@@ -180,7 +336,7 @@ The `agno_modal_deploy.py` script is a generic deployment solution that:
 
 ```python
 # The script reads your agent file name
-AGENT_FILE = "financial_agent_app.py"
+AGENT_FILE = "agno_agents/financial_agent_app.py"
 agent_file_path = Path(AGENT_FILE)
 
 # Validates the file exists
@@ -191,7 +347,22 @@ if not agent_file_path.exists():
 APP_NAME = agent_file_path.stem  # "financial_agent_app"
 ```
 
-#### 2. Dependency Management
+#### 2. Pattern Detection
+
+```python
+def detect_agent_pattern(agent_module):
+    # Checks for __all__ exports first
+    if hasattr(agent_module, '__all__'):
+        available_names = agent_module.__all__
+    else:
+        available_names = [name for name in dir(agent_module) if not name.startswith('_')]
+    
+    # Collects candidates for each pattern
+    # Applies priority-based selection
+    # Returns (pattern_type, callable_or_object, pattern_name)
+```
+
+#### 3. Dependency Management
 
 The script automatically reads your `requirements.txt` file:
 
@@ -213,7 +384,7 @@ def load_requirements():
 - ✅ **Smart parsing** - Handles comments, editable installs, recursive requirements
 - ✅ **Error handling** - Clear messages if file is missing or invalid
 
-#### 3. Secret Management
+#### 4. Secret Management
 
 The script uses Modal's built-in `.env` file support:
 
@@ -231,7 +402,7 @@ secrets=[modal.Secret.from_dotenv()] if has_env_file else []
 - ✅ **Simple** - Just create a `.env` file with your API keys
 - ✅ **Optional** - Works without secrets (with warnings)
 
-#### 4. Modal Configuration
+#### 5. Modal Configuration
 
 The script configures Modal with optimal settings for Agno agents:
 
@@ -245,18 +416,25 @@ The script configures Modal with optimal settings for Agno agents:
 )
 ```
 
-#### 5. Dynamic Import and Deployment
+#### 6. Dynamic Import and Deployment
 
 ```python
 def fastapi_app():
     # Dynamically imports your agent module
     agent_module = importlib.import_module(AGENT_MODULE)
     
-    # Calls your create_fastapi_app() function
-    fastapi_app = agent_module.create_fastapi_app()
+    # Detects the agent pattern
+    pattern_type, pattern_object, pattern_name = detect_agent_pattern(agent_module)
     
-    # Returns the FastAPI app for Modal to serve
-    return fastapi_app.get_app()
+    # Handles different patterns appropriately
+    if pattern_type == 'fastapi_function':
+        fastapi_app_instance = pattern_object()
+    elif pattern_type == 'agent_function':
+        agent_instance = pattern_object()
+        fastapi_app_instance = FastAPIApp(agent=agent_instance)
+    # ... handles all 4 patterns
+    
+    return fastapi_app_instance.get_app()
 ```
 
 ## 🛠 Customization Options
@@ -278,14 +456,14 @@ MAX_CONCURRENT=200 modal deploy agno_modal_deploy.py   # 200 concurrent requests
 Deploy different agents by changing the `AGENT_FILE`:
 
 ```python
-# For a trading bot
+# For a trading bot (Pattern 2: Function returning Agent)
 AGENT_FILE = "trading_bot.py"
 
-# For a research assistant
+# For a research assistant (Pattern 1: Function returning FastAPIApp) 
 AGENT_FILE = "research_assistant.py"
 
-# For a financial advisor
-AGENT_FILE = "financial_agent_app.py"
+# For a financial advisor (Pattern 4: Direct Agent variable)
+AGENT_FILE = "agno_agents/financial_agent_app_variable_agent.py"
 ```
 
 ## 🌐 Using Your Deployed Agent
@@ -348,24 +526,38 @@ response = requests.post(
 print(response.json())
 ```
 
-## 📊 Example: Financial Agent
+## 📊 Pattern Examples
 
-This repository includes a complete example of a financial analysis agent:
+This repository includes complete examples for all 4 supported patterns in the [`agno_agents/`](agno_agents/) directory:
 
-### Agent Features (`financial_agent_app.py`)
+### Testing Different Patterns
+
+To test different patterns, simply update the `AGENT_FILE` in `agno_modal_deploy.py`:
+
+```python
+# Test Pattern 1: Function returning FastAPIApp
+AGENT_FILE = "agno_agents/financial_agent_app_function_fastapi.py"
+
+# Test Pattern 2: Function returning Agent  
+AGENT_FILE = "agno_agents/financial_agent_app_function_agent.py"
+
+# Test Pattern 3: Direct FastAPIApp variable
+AGENT_FILE = "agno_agents/financial_agent_app_variable_fastapi.py"
+
+# Test Pattern 4: Direct Agent variable
+AGENT_FILE = "agno_agents/financial_agent_app_variable_agent.py"
+
+# Test Ambiguity Resolution
+AGENT_FILE = "agno_agents/financial_agent_app_multiple_patterns.py"
+```
+
+### Agent Features (All Examples)
 
 - **Real-time stock prices** using YFinance
 - **Company fundamentals** and financial ratios
 - **Analyst recommendations** and price targets
 - **Recent company news** and market developments
 - **GPT-4o powered analysis** for sophisticated insights
-
-### Deployment
-
-```bash
-# The agent is already configured in agno_modal_deploy.py
-modal deploy agno_modal_deploy.py
-```
 
 ### Usage Examples
 
@@ -402,35 +594,54 @@ curl -X POST https://your-url.modal.run/v1/run \
    ```
    **Solution**: Create requirements.txt with `pip freeze > requirements.txt`
 
-3. **Missing create_fastapi_app function**
+3. **No valid agent pattern found**
    ```
-   ❌ Agent module must have a 'create_fastapi_app()' function
+   ❌ No valid agent pattern found in 'your_agent'. Supported patterns:
+      1. Function returning FastAPIApp (e.g., def create_fastapi_app() -> FastAPIApp)
+      2. Function returning Agent (e.g., def create_agent() -> Agent)
+      3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agent))
+      4. Direct Agent variable (e.g., agent = Agent(...))
    ```
-   **Solution**: Add the required function to your agent file
+   **Solution**: Implement one of the 4 supported patterns in your agent file
 
-4. **API key errors**
+4. **Multiple patterns detected**
+   ```
+   ❌ Multiple Agent functions found: ['create_agent', 'create_financial_agent']. 
+      Please export only one using __all__ = ['create_agent']
+   ```
+   **Solution**: Add `__all__ = ['function_or_variable_name']` to specify which pattern to use
+
+5. **API key errors**
    ```
    ⚠️ Warning: No .env file found during deployment
    ```
    **Solution**: Create `.env` file with your API keys
 
-5. **Authentication configuration errors**
+6. **Authentication configuration errors**
    ```
    ❌ Authentication is enabled but no .env file found
    ```
    **Solution**: Create `.env` file with `AUTH_TOKEN=your-token` or set `ENABLE_AUTH=False`
 
-6. **Missing authentication token**
+7. **Missing authentication token**
    ```
    ❌ AUTH_TOKEN not found in .env file
    ```
    **Solution**: Add `AUTH_TOKEN=your-secret-token` to your `.env` file
 
-7. **Commented authentication token**
+8. **Commented authentication token**
    ```
    ❌ AUTH_TOKEN is commented out in .env file
    ```
    **Solution**: Uncomment the `AUTH_TOKEN` line in your `.env` file
+
+### Pattern Selection Guidelines
+
+- **Use Pattern 1** (Function returning FastAPIApp) for maximum control and complex setups
+- **Use Pattern 2** (Function returning Agent) for simple deployments and clean code
+- **Use Pattern 3** (Direct FastAPIApp variable) for module-level initialization 
+- **Use Pattern 4** (Direct Agent variable) for the simplest possible setup
+- **Use `__all__`** when you have multiple patterns in the same file
 
 ## 🤝 Contributing
 
