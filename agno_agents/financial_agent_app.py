@@ -1,7 +1,6 @@
 import argparse
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.app.fastapi.serve import serve_fastapi_app
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
@@ -10,6 +9,7 @@ def create_financial_agent() -> Agent:
     # Create the financial agent
     financial_agent = Agent(
         name="Financial Analysis Agent",
+        agent_id="financial-analysis-agent",  # Explicit ID for API calls
         description="Expert financial advisor providing stock analysis, market insights, and investment recommendations",
         
         # Use GPT-4 for sophisticated financial analysis
@@ -67,8 +67,8 @@ def create_fastapi_app() -> FastAPIApp:
     # Create the financial agent
     agent = create_financial_agent()
     
-    # Create and return FastAPI app
-    app = FastAPIApp(agent=agent)
+    # Create and return FastAPI app - Updated for new Agno version
+    app = FastAPIApp(agents=[agent])
     return app
 
 
@@ -76,11 +76,9 @@ def main():
     try:
         # Create FastAPI app (which internally creates the agent)
         fastapi_app = create_fastapi_app()
-        app = fastapi_app.get_app()
         
-        # Start the FastAPI server
-        serve_fastapi_app(
-            app=app,
+        # Start the FastAPI server - Updated for new Agno version
+        fastapi_app.serve(
             host="localhost",
             port=8001,
             reload=False

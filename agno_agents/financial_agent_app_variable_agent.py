@@ -1,24 +1,24 @@
 """
 Financial Agent - Pattern 4: Direct Agent variable export
 
-This file demonstrates the fourth priority pattern where an Agent 
-instance is directly exported as a module variable and will be 
+This file demonstrates the lowest priority pattern where an Agent 
+instance is directly exported as a module variable and gets 
 automatically wrapped in FastAPIApp.
 """
 
 import argparse
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.app.fastapi.serve import serve_fastapi_app
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
 
 # Pattern 4: Direct Agent variable export (Lowest Priority)
-# This Agent instance will be automatically detected and wrapped
+# This Agent instance will be automatically detected and wrapped 
 # in FastAPIApp by the deployment script.
-financial_agent = Agent(
+agent = Agent(
     name="Financial Analysis Agent",
+    agent_id="financial-analysis-agent",  # Explicit ID for API calls
     description="Expert financial advisor providing stock analysis, market insights, and investment recommendations",
     
     # Use GPT-4 for sophisticated financial analysis
@@ -65,19 +65,17 @@ financial_agent = Agent(
 
 # Optional: Export list to explicitly specify what should be used
 # This helps avoid ambiguity if multiple variables exist
-__all__ = ['financial_agent']
+__all__ = ['agent']
 
 
 def main():
     """Local development server"""
     try:
-        # Wrap the module-level agent in FastAPIApp
-        fastapi_app = FastAPIApp(agent=financial_agent)
-        app = fastapi_app.get_app()
+        # Wrap the module-level agent in FastAPIApp - Updated for new Agno version
+        fastapi_app = FastAPIApp(agents=[agent])
         
-        # Start the FastAPI server
-        serve_fastapi_app(
-            app=app,
+        # Start the FastAPI server - Updated for new Agno version
+        fastapi_app.serve(
             host="localhost",
             port=8004,
             reload=False

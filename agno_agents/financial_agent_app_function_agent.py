@@ -2,27 +2,26 @@
 Financial Agent - Pattern 2: Function returning Agent
 
 This file demonstrates the second priority pattern where a function 
-returns an Agent instance that will be automatically wrapped in FastAPIApp.
+returns an Agent instance that gets automatically wrapped in FastAPIApp.
 """
 
 import argparse
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.app.fastapi.serve import serve_fastapi_app
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
 
-def create_financial_agent() -> Agent:
+def create_agent() -> Agent:
     """
-    Create a financial analysis agent.
+    Create a financial agent - will be auto-wrapped in FastAPIApp.
     
     Pattern 2: Function returning Agent (Second Priority)
-    This function returns an Agent instance that will be automatically
-    wrapped in FastAPIApp by the deployment script.
+    This is the simplest pattern for basic deployments.
     """
     return Agent(
         name="Financial Analysis Agent",
+        agent_id="financial-analysis-agent",  # Explicit ID for API calls
         description="Expert financial advisor providing stock analysis, market insights, and investment recommendations",
         
         # Use GPT-4 for sophisticated financial analysis
@@ -71,14 +70,12 @@ def create_financial_agent() -> Agent:
 def main():
     """Local development server"""
     try:
-        # Create agent and wrap in FastAPI app
-        agent = create_financial_agent()
-        fastapi_app = FastAPIApp(agent=agent)
-        app = fastapi_app.get_app()
+        # Create agent and wrap in FastAPIApp - Updated for new Agno version
+        agent = create_agent()
+        fastapi_app = FastAPIApp(agents=[agent])
         
-        # Start the FastAPI server
-        serve_fastapi_app(
-            app=app,
+        # Start the FastAPI server - Updated for new Agno version
+        fastapi_app.serve(
             host="localhost",
             port=8002,
             reload=False

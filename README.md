@@ -32,7 +32,7 @@ The deployment script supports **4 different Agno agent patterns** with automati
 def create_fastapi_app() -> FastAPIApp:
     """Create a complete FastAPI app with agent"""
     agent = Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
-    return FastAPIApp(agent=agent)
+    return FastAPIApp(agents=[agent])
 ```
 
 ### Pattern 2: Function returning Agent (Second Priority)
@@ -46,7 +46,7 @@ def create_agent() -> Agent:
 ```python
 # Direct FastAPIApp instance
 agent = Agent(name="My Agent", model=OpenAIChat(id="gpt-4o"))
-app = FastAPIApp(agent=agent)
+app = FastAPIApp(agents=[agent])
 ```
 
 ### Pattern 4: Direct Agent variable (Lowest Priority)
@@ -63,22 +63,76 @@ If your file has multiple patterns, use Python's `__all__` to specify which one 
 def create_fastapi_app() -> FastAPIApp: ...
 def create_agent() -> Agent: ...
 agent = Agent(...)
-app = FastAPIApp(agent=agent)
+app = FastAPIApp(agents=[agent])
 
 # Explicitly specify which pattern to use
 __all__ = ['create_agent']  # Use the function returning Agent
+```
+
+## 🚀 Multi-Agent Support (NEW!)
+
+Agno's latest version supports **multiple agents** in a single FastAPIApp instance! This allows you to deploy specialized agents that work together, each with their own `agent_id`.
+
+### Multi-Agent Benefits
+
+- **Specialized Expertise**: Different agents for different tasks (analysis vs. trading)
+- **Single Deployment**: Deploy multiple agents together in one API
+- **Shared Resources**: Common authentication, monitoring, and infrastructure
+- **Agent Selection**: Choose which agent to use via the `agent_id` parameter
+
+### Multi-Agent Patterns Supported
+
+Currently, **Pattern 1** (Function returning FastAPIApp) and **Pattern 3** (Direct FastAPIApp variable) support multiple agents:
+
+#### Multi-Agent Pattern 1: Function returning FastAPIApp
+```python
+def create_fastapi_app() -> FastAPIApp:
+    """Create FastAPIApp with multiple specialized agents"""
+    analysis_agent = Agent(name="Analysis Agent", agent_id="analysis-agent", ...)
+    trading_agent = Agent(name="Trading Agent", agent_id="trading-agent", ...)
+    
+    return FastAPIApp(agents=[analysis_agent, trading_agent])
+```
+
+#### Multi-Agent Pattern 3: Direct FastAPIApp variable
+```python
+# Create multiple agents
+analysis_agent = Agent(name="Analysis Agent", agent_id="analysis-agent", ...)
+trading_agent = Agent(name="Trading Agent", agent_id="trading-agent", ...)
+
+# Direct FastAPIApp with multiple agents
+app = FastAPIApp(agents=[analysis_agent, trading_agent])
+```
+
+### Multi-Agent API Usage
+
+With multi-agent deployments, specify which agent to use:
+
+```bash
+# Use the financial analysis agent
+curl -X POST 'https://your-url.modal.run/runs?agent_id=financial-analysis-agent' \
+  -F "message=Analyze Apple's quarterly results"
+
+# Use the trading strategy agent  
+curl -X POST 'https://your-url.modal.run/runs?agent_id=trading-strategy-agent' \
+  -F "message=What's a good entry strategy for Tesla?"
 ```
 
 ## 📁 Pattern Examples
 
 This repository includes complete working examples for all patterns in the [`agno_agents/`](agno_agents/) directory:
 
+**Single-Agent Examples:**
 - `agno_agents/financial_agent_app.py` - Original example (Pattern 1)
 - `agno_agents/financial_agent_app_function_fastapi.py` - Pattern 1 demo
 - `agno_agents/financial_agent_app_function_agent.py` - Pattern 2 demo  
 - `agno_agents/financial_agent_app_variable_fastapi.py` - Pattern 3 demo
 - `agno_agents/financial_agent_app_variable_agent.py` - Pattern 4 demo
 - `agno_agents/financial_agent_app_multiple_patterns.py` - Ambiguity resolution demo
+
+**Multi-Agent Examples (NEW!):**
+- `agno_agents/multi_agent_app_function_fastapi.py` - Pattern 1 with multiple agents
+- `agno_agents/multi_agent_app_variable_fastapi.py` - Pattern 3 with multiple agents
 
 See the [agno_agents README](agno_agents/README.md) for detailed information about each example.
 
@@ -87,6 +141,7 @@ See the [agno_agents README](agno_agents/README.md) for detailed information abo
 1. **Modal Account**: Create a free account at [modal.com](https://modal.com)
 2. **Modal CLI**: Install and authenticate Modal
 3. **Python Environment**: Python 3.8+ with your Agno agent dependencies
+4. **Agno Version**: This deployment script is compatible with the latest Agno version (updated for FastAPIApp changes)
 
 ### Setting Up Modal
 
@@ -118,11 +173,12 @@ def create_fastapi_app() -> FastAPIApp:
     """
     agent = Agent(
         name="Your Agent",
+        agent_id="your-agent-id",  # Explicit ID for API calls
         model=OpenAIChat(id="gpt-4o"),
         # ... your agent configuration
     )
     
-    return FastAPIApp(agent=agent)
+    return FastAPIApp(agents=[agent])
 ```
 
 #### Pattern 2: Function returning Agent (Simplest)
@@ -137,7 +193,8 @@ def create_agent() -> Agent:
     This is the simplest pattern for basic deployments.
     """
     return Agent(
-        name="Your Agent", 
+        name="Your Agent",
+        agent_id="your-agent-id",  # Explicit ID for API calls
         model=OpenAIChat(id="gpt-4o"),
         # ... your agent configuration
     )
@@ -153,12 +210,13 @@ from agno.models.openai import OpenAIChat
 # Create agent
 agent = Agent(
     name="Your Agent",
+    agent_id="your-agent-id",  # Explicit ID for API calls
     model=OpenAIChat(id="gpt-4o"),
     # ... your agent configuration  
 )
 
 # Direct FastAPIApp instance
-app = FastAPIApp(agent=agent)
+app = FastAPIApp(agents=[agent])
 
 # Optional: Explicit export
 __all__ = ['app']
@@ -173,6 +231,7 @@ from agno.models.openai import OpenAIChat
 # Direct Agent instance - will be auto-wrapped in FastAPIApp
 agent = Agent(
     name="Your Agent",
+    agent_id="your-agent-id",  # Explicit ID for API calls
     model=OpenAIChat(id="gpt-4o"),
     # ... your agent configuration
 )
@@ -243,7 +302,7 @@ AUTH_TOKEN=your-super-secret-deployment-token-here
 **Usage with Authentication:**
 ```bash
 # Making authenticated requests
-curl -X POST https://your-deployment-url.modal.run/v1/run \
+curl -X POST 'https://your-deployment-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -H "Authorization: Bearer your-super-secret-deployment-token-here" \
   -F "message=What is the current stock price of AAPL?" \
   -F "stream=false"
@@ -431,7 +490,7 @@ def fastapi_app():
         fastapi_app_instance = pattern_object()
     elif pattern_type == 'agent_function':
         agent_instance = pattern_object()
-        fastapi_app_instance = FastAPIApp(agent=agent_instance)
+        fastapi_app_instance = FastAPIApp(agents=[agent_instance])
     # ... handles all 4 patterns
     
     return fastapi_app_instance.get_app()
@@ -472,26 +531,34 @@ Once deployed, Modal provides you with a public URL. You can interact with your 
 
 ### API Endpoints
 
-- **POST `/v1/run`** - Main agent interaction endpoint
+- **POST `/runs`** - Main agent interaction endpoint
 - **GET `/health`** - Health check
 - **GET `/docs`** - Interactive API documentation
 - **GET `/redoc`** - Alternative API documentation
+
+**Important**: Agno now **requires** the `agent_id` parameter for all requests to `/runs` endpoint, even for single-agent deployments. Use `/runs?agent_id=your-agent-id` format.
+
+**Agent IDs in Examples:**
+- Single-agent examples: `agent_id=financial-analysis-agent`
+- Multi-agent examples: 
+  - Financial analysis: `agent_id=financial-analysis-agent`
+  - Trading strategy: `agent_id=trading-strategy-agent`
 
 ### Example API Usage
 
 ```bash
 # Basic chat request (add -H "Authorization: Bearer your-token" if auth is enabled)
-curl -X POST https://your-deployment-url.modal.run/v1/run \
+curl -X POST 'https://your-deployment-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=What is the current stock price of AAPL?" \
   -F "stream=false"
 
 # Streaming response
-curl -X POST https://your-deployment-url.modal.run/v1/run \
+curl -X POST 'https://your-deployment-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=Analyze the market trends" \
   -F "stream=true"
 
 # With session for conversation continuity
-curl -X POST https://your-deployment-url.modal.run/v1/run \
+curl -X POST 'https://your-deployment-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=Hello, I need investment advice" \
   -F "stream=false" \
   -F "session_id=my-session-123"
@@ -515,7 +582,7 @@ headers = {"Authorization": "Bearer your-super-secret-deployment-token-here"}
 
 # Send a message to your agent
 response = requests.post(
-    f"{BASE_URL}/v1/run",
+    f"{BASE_URL}/runs?agent_id=financial-analysis-agent",
     headers=headers,  # Add this if authentication is enabled
     files={
         "message": (None, "What are the top tech stocks to watch?"),
@@ -535,6 +602,7 @@ This repository includes complete examples for all 4 supported patterns in the [
 To test different patterns, simply update the `AGENT_FILE` in `agno_modal_deploy.py`:
 
 ```python
+# Single-Agent Examples
 # Test Pattern 1: Function returning FastAPIApp
 AGENT_FILE = "agno_agents/financial_agent_app_function_fastapi.py"
 
@@ -549,32 +617,69 @@ AGENT_FILE = "agno_agents/financial_agent_app_variable_agent.py"
 
 # Test Ambiguity Resolution
 AGENT_FILE = "agno_agents/financial_agent_app_multiple_patterns.py"
+
+# Multi-Agent Examples (NEW!)
+# Test Multi-Agent Pattern 1: Function returning FastAPIApp with multiple agents
+AGENT_FILE = "agno_agents/multi_agent_app_function_fastapi.py"
+
+# Test Multi-Agent Pattern 3: Direct FastAPIApp variable with multiple agents
+AGENT_FILE = "agno_agents/multi_agent_app_variable_fastapi.py"
 ```
 
 ### Agent Features (All Examples)
 
+**Single-Agent Examples:**
 - **Real-time stock prices** using YFinance
 - **Company fundamentals** and financial ratios
 - **Analyst recommendations** and price targets
 - **Recent company news** and market developments
 - **GPT-4o powered analysis** for sophisticated insights
 
+**Multi-Agent Examples:**
+- **Financial Analysis Agent** (`agent_id: financial-analysis-agent`):
+  - Comprehensive stock analysis and market research
+  - Company fundamentals and financial ratios
+  - Investment research and risk assessment
+- **Trading Strategy Agent** (`agent_id: trading-strategy-agent`):
+  - Tactical trading advice and portfolio management
+  - Entry/exit strategies and risk management
+  - Market timing and position sizing recommendations
+
 ### Usage Examples
 
+**Single-Agent Examples:**
 ```bash
 # Stock analysis
-curl -X POST https://your-url.modal.run/v1/run \
+curl -X POST 'https://your-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=Analyze Tesla (TSLA) stock performance" \
   -F "stream=false"
 
 # Market comparison
-curl -X POST https://your-url.modal.run/v1/run \
+curl -X POST 'https://your-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=Compare Apple vs Microsoft for investment" \
   -F "stream=false"
 
 # Portfolio advice
-curl -X POST https://your-url.modal.run/v1/run \
+curl -X POST 'https://your-url.modal.run/runs?agent_id=financial-analysis-agent' \
   -F "message=Should I invest in NVIDIA right now?" \
+  -F "stream=false"
+```
+
+**Multi-Agent Examples:**
+```bash
+# Financial analysis (using analysis agent)
+curl -X POST 'https://your-url.modal.run/runs?agent_id=financial-analysis-agent' \
+  -F "message=Analyze Apple's financial statements and provide investment research" \
+  -F "stream=false"
+
+# Trading strategy (using trading agent)
+curl -X POST 'https://your-url.modal.run/runs?agent_id=trading-strategy-agent' \
+  -F "message=What's a good trading strategy for Tesla this week?" \
+  -F "stream=false"
+
+# Portfolio management (using trading agent)
+curl -X POST 'https://your-url.modal.run/runs?agent_id=trading-strategy-agent' \
+  -F "message=Help me create a diversified tech portfolio with risk management" \
   -F "stream=false"
 ```
 
@@ -599,7 +704,7 @@ curl -X POST https://your-url.modal.run/v1/run \
    ❌ No valid agent pattern found in 'your_agent'. Supported patterns:
       1. Function returning FastAPIApp (e.g., def create_fastapi_app() -> FastAPIApp)
       2. Function returning Agent (e.g., def create_agent() -> Agent)
-      3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agent))
+      3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agents=[agent]))
       4. Direct Agent variable (e.g., agent = Agent(...))
    ```
    **Solution**: Implement one of the 4 supported patterns in your agent file

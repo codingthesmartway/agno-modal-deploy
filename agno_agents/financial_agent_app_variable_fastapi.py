@@ -8,7 +8,6 @@ instance is directly exported as a module variable.
 import argparse
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.app.fastapi.serve import serve_fastapi_app
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
@@ -17,6 +16,7 @@ def _create_financial_agent() -> Agent:
     """Private helper function to create the financial agent"""
     return Agent(
         name="Financial Analysis Agent",
+        agent_id="financial-analysis-agent",  # Explicit ID for API calls
         description="Expert financial advisor providing stock analysis, market insights, and investment recommendations",
         
         # Use GPT-4 for sophisticated financial analysis
@@ -64,8 +64,8 @@ def _create_financial_agent() -> Agent:
 
 # Pattern 3: Direct FastAPIApp variable export (Third Priority)
 # This FastAPIApp instance will be automatically detected and used
-# by the deployment script.
-financial_app = FastAPIApp(agent=_create_financial_agent())
+# by the deployment script. Updated for new Agno version.
+financial_app = FastAPIApp(agents=[_create_financial_agent()])
 
 # Optional: Export list to explicitly specify what should be used
 # This helps avoid ambiguity if multiple variables exist
@@ -75,12 +75,8 @@ __all__ = ['financial_app']
 def main():
     """Local development server"""
     try:
-        # Use the module-level FastAPIApp instance
-        app = financial_app.get_app()
-        
-        # Start the FastAPI server
-        serve_fastapi_app(
-            app=app,
+        # Start the FastAPI server - Updated for new Agno version
+        financial_app.serve(
             host="localhost",
             port=8003,
             reload=False

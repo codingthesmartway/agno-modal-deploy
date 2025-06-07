@@ -31,9 +31,9 @@ from pathlib import Path
 # CONFIGURATION 
 # ============================================================================
 # Edit this to point to your agent implementation file
-AGENT_FILE = "agno_agents/financial_agent_app.py"
+AGENT_FILE = "agno_agents/multi_agent_app_function_fastapi.py"
 # Authentication Configuration
-ENABLE_AUTH = False   # Set to False to disable authentication
+ENABLE_AUTH = True   # Set to False to disable authentication
 PROTECT_DOCS = False  # Set to False to make /docs publicly accessible
 # ============================================================================
 
@@ -321,7 +321,7 @@ def detect_agent_pattern(agent_module):
         f"❌ No valid agent pattern found in '{AGENT_MODULE}'. Supported patterns:\n"
         f"   1. Function returning FastAPIApp (e.g., def create_fastapi_app() -> FastAPIApp)\n"
         f"   2. Function returning Agent (e.g., def create_agent() -> Agent)\n"
-        f"   3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agent))\n"
+        f"   3. Direct FastAPIApp variable (e.g., app = FastAPIApp(agents=[agent]))\n"
         f"   4. Direct Agent variable (e.g., agent = Agent(...))\n"
         f"   Use __all__ = ['function_or_variable_name'] to specify which to use if multiple exist."
     )
@@ -467,8 +467,8 @@ def fastapi_app():
             if not isinstance(agent_instance, Agent):
                 raise TypeError(f"{pattern_name}() must return an Agent instance, got {type(agent_instance)}")
             
-            # Wrap agent in FastAPIApp
-            fastapi_app_instance = FastAPIApp(agent=agent_instance)
+            # Wrap agent in FastAPIApp - Updated for new Agno version
+            fastapi_app_instance = FastAPIApp(agents=[agent_instance])
             app_instance = fastapi_app_instance.get_app()
             
         elif pattern_type == 'fastapi_variable':
@@ -482,8 +482,8 @@ def fastapi_app():
             print(f"🚀 Loading Agent from {AGENT_MODULE}.{pattern_name} and wrapping in FastAPIApp")
             agent_instance = pattern_object
             
-            # Wrap agent in FastAPIApp
-            fastapi_app_instance = FastAPIApp(agent=agent_instance)
+            # Wrap agent in FastAPIApp - Updated for new Agno version
+            fastapi_app_instance = FastAPIApp(agents=[agent_instance])
             app_instance = fastapi_app_instance.get_app()
             
         else:

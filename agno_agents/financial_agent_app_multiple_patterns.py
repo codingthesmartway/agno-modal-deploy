@@ -1,15 +1,17 @@
 """
-Financial Agent - Multiple Patterns with __all__ Resolution
+Financial Agent - Multiple Patterns Demo
 
-This file demonstrates a scenario where multiple patterns exist in the same file
-and how __all__ can be used to explicitly specify which one should be used
-by the deployment script, avoiding ambiguity.
+This file demonstrates what happens when multiple agent patterns exist
+in the same file. The deployment script will detect ambiguity and 
+require explicit selection using __all__.
+
+This example shows all 4 patterns coexisting and uses __all__ to specify
+which one to use for deployment.
 """
 
 import argparse
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.app.fastapi.serve import serve_fastapi_app
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
@@ -18,6 +20,7 @@ def _create_base_agent() -> Agent:
     """Helper function to create the base financial agent"""
     return Agent(
         name="Financial Analysis Agent",
+        agent_id="financial-analysis-agent",  # Explicit ID for API calls
         description="Expert financial advisor providing stock analysis, market insights, and investment recommendations",
         
         # Use GPT-4 for sophisticated financial analysis
@@ -63,70 +66,61 @@ def _create_base_agent() -> Agent:
     )
 
 
-# Pattern 1: Function returning FastAPIApp (normally highest priority)
+# Pattern 1: Function returning FastAPIApp (Highest Priority)
 def create_fastapi_app() -> FastAPIApp:
     """Create a FastAPI app with the financial agent"""
     agent = _create_base_agent()
-    return FastAPIApp(agent=agent)
+    return FastAPIApp(agents=[agent])  # Updated for new Agno version
 
 
-# Pattern 2: Function returning Agent (normally second priority)  
-def create_financial_agent() -> Agent:
-    """Create a financial analysis agent"""
+# Pattern 2: Function returning Agent (Second Priority)  
+def create_agent() -> Agent:
+    """Create an agent - will be auto-wrapped in FastAPIApp"""
     return _create_base_agent()
 
 
-# Pattern 3: Direct FastAPIApp variable (normally third priority)
-financial_app = FastAPIApp(agent=_create_base_agent())
+# Pattern 3: Direct FastAPIApp variable (Third Priority)
+financial_fastapi_app = FastAPIApp(agents=[_create_base_agent()])  # Updated for new Agno version
 
 
-# Pattern 4: Direct Agent variable (normally lowest priority)
+# Pattern 4: Direct Agent variable (Lowest Priority)
 financial_agent = _create_base_agent()
 
 
-# IMPORTANT: Use __all__ to explicitly specify which pattern to use
-# This resolves ambiguity when multiple patterns exist in the same file
-# Comment/uncomment different lines to test different patterns
+# EXPLICIT SELECTION USING __all__
+# Since multiple patterns exist, we use __all__ to specify which one to use.
+# The deployment script will use this to resolve ambiguity.
+#
+# Try changing this to test different patterns:
+# __all__ = ['create_fastapi_app']     # Pattern 1: Function returning FastAPIApp
+# __all__ = ['create_agent']           # Pattern 2: Function returning Agent
+# __all__ = ['financial_fastapi_app']  # Pattern 3: Direct FastAPIApp variable
+# __all__ = ['financial_agent']        # Pattern 4: Direct Agent variable
 
-# Choose Pattern 1: Function returning FastAPIApp
-# __all__ = ['create_fastapi_app']
-
-# Choose Pattern 2: Function returning Agent
-# __all__ = ['create_financial_agent']
-
-# Choose Pattern 3: Direct FastAPIApp variable
-# __all__ = ['financial_app']
-
-# Choose Pattern 4: Direct Agent variable (currently selected)
-__all__ = ['financial_agent']
-
-# Without __all__, the deployment would fail with an error like:
-# "❌ Multiple Agent functions found: ['create_financial_agent', ...]. 
-#  Please export only one using __all__ = ['create_financial_agent']"
+__all__ = ['create_agent']  # Using Pattern 2 for this demo
 
 
 def main():
-    """Local development server using the explicitly exported pattern"""
+    """Local development server - uses the pattern specified in __all__"""
     try:
-        # This example uses the __all__ selected pattern (financial_agent)
-        # In practice, you'd adapt this based on your __all__ selection
-        if 'financial_agent' in __all__:
-            fastapi_app = FastAPIApp(agent=financial_agent)
-        elif 'financial_app' in __all__:
-            fastapi_app = financial_app
-        elif 'create_fastapi_app' in __all__:
+        if 'create_fastapi_app' in __all__:
+            # Pattern 1: Function returning FastAPIApp
             fastapi_app = create_fastapi_app()
-        elif 'create_financial_agent' in __all__:
-            agent = create_financial_agent()
-            fastapi_app = FastAPIApp(agent=agent)
+        elif 'create_agent' in __all__:
+            # Pattern 2: Function returning Agent (wrap in FastAPIApp)
+            agent = create_agent()
+            fastapi_app = FastAPIApp(agents=[agent])  # Updated for new Agno version
+        elif 'financial_fastapi_app' in __all__:
+            # Pattern 3: Direct FastAPIApp variable
+            fastapi_app = financial_fastapi_app
+        elif 'financial_agent' in __all__:
+            # Pattern 4: Direct Agent variable (wrap in FastAPIApp)
+            fastapi_app = FastAPIApp(agents=[financial_agent])  # Updated for new Agno version
         else:
-            raise ValueError("No valid pattern specified in __all__")
+            raise ValueError("Invalid __all__ specification")
         
-        app = fastapi_app.get_app()
-        
-        # Start the FastAPI server
-        serve_fastapi_app(
-            app=app,
+        # Start the FastAPI server - Updated for new Agno version
+        fastapi_app.serve(
             host="localhost",
             port=8005,
             reload=False
