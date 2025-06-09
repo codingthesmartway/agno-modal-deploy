@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "ag-ui-protocol>=0.1.5",
     "agno>=1.5.9",
     "fastapi>=0.115.12",
     "modal>=1.0.2",

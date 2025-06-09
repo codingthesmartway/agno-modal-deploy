@@ -1,10 +1,24 @@
-# Deploying Agno Agents to Modal with FastAPIApp
+# Deploying Agno Agents to Modal
 
-This repository demonstrates how to easily deploy any Agno agent to Modal cloud platform using a generic deployment script. The `agno_modal_deploy.py` script handles all the complexity of Modal deployment, making it simple to get your Agno agents running in the cloud.
+This repository demonstrates how to easily deploy any Agno agent to Modal cloud platform using generic deployment scripts. Choose between FastAPI deployment for custom integrations or AG-UI deployment for standardized front-end integration.
 
 ## 📊 Deployment Overview
 
-The deployment process is straightforward: the script takes your Agno agent, packages it with all dependencies, and deploys it to Modal's cloud platform. Your agent becomes instantly available via a REST API endpoint, ready to handle requests from anywhere.
+This repository provides **two deployment options**:
+
+### 🔄 **FastAPI Deployment** (`agno_modal_deploy.py`)
+- **Multi-agent support** with agent selection via `agent_id`
+- **Custom API endpoints** (`/runs?agent_id=your-agent`)  
+- **Authentication support** with token-based security
+- **Best for**: API integrations, custom applications, multi-agent systems
+
+### 🎨 **AG-UI Deployment** (`agno_modal_deploy_agui.py`) 
+- **Standardized AG-UI protocol** for front-end integration
+- **Single agent/team deployment** with `/agui` endpoint
+- **No authentication** (optimized for front-end use)
+- **Best for**: Web applications, UI frameworks like Dojo, standardized interfaces
+
+Both options package your agent with dependencies and deploy to Modal's cloud platform, making your agent instantly available via REST API.
 
 
 ![Agno Modal Deployment Process](media/agno_modal_deploy.png)
@@ -17,11 +31,12 @@ Check out this quick demo of deploying a financial analysis agent to Modal. The 
 
 ## 🎯 What You'll Learn
 
+- **Two deployment options**: FastAPI vs AG-UI protocols
 - How to deploy Agno agents to Modal in minutes
-- How to use the generic `agno_modal_deploy.py` script for any agent
 - Multiple supported agent patterns for maximum flexibility
 - How to manage dependencies and secrets automatically
 - How to interact with your deployed agent via API
+- **NEW**: How to deploy for front-end integration with AG-UI
 
 ## 🔧 Supported Agno Agent Patterns
 
@@ -118,6 +133,59 @@ curl -X POST 'https://your-url.modal.run/runs?agent_id=trading-strategy-agent' \
   -F "message=What's a good entry strategy for Tesla?"
 ```
 
+## 🎨 AG-UI Deployment (NEW!)
+
+AG-UI provides a **standardized protocol** for front-end integration. Perfect for web applications and UI frameworks like [Dojo](https://github.com/ag-ui-protocol/ag-ui).
+
+### AG-UI vs FastAPI Comparison
+
+| Feature | FastAPI Deployment | AG-UI Deployment |
+|---------|-------------------|------------------|
+| **Protocol** | Custom Agno API | Standardized AG-UI |
+| **Agents** | Multiple agents | Single agent/team |
+| **Endpoint** | `/runs?agent_id=X` | `/agui` |
+| **Authentication** | Optional token auth | None (front-end optimized) |
+| **Best for** | API integrations | Web UIs, front-ends |
+
+### AG-UI Deployment Script
+
+Use `agno_modal_deploy_agui.py` for AG-UI deployments:
+
+```python
+# agno_modal_deploy_agui.py - CONFIGURATION
+AGENT_FILE = "agno_agents/financial_agent_agui_app.py"
+```
+
+### AG-UI Supported Patterns
+
+1. **Function returning AGUIApp** (Highest Priority)
+2. **Function returning Agent** (Auto-wrapped in AGUIApp)
+3. **Function returning Team** (Auto-wrapped in AGUIApp)
+4. **Direct AGUIApp variable**
+5. **Direct Agent variable** (Auto-wrapped)
+6. **Direct Team variable** (Auto-wrapped)
+
+### AG-UI Example Usage
+
+```bash
+# Deploy with AG-UI protocol
+modal serve agno_modal_deploy_agui.py
+modal deploy agno_modal_deploy_agui.py
+
+# Interact with AG-UI endpoint
+curl -X POST 'https://your-agui-deployment.modal.run/agui' \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Analyze Apple stock performance"}'
+```
+
+### AG-UI Front-End Integration
+
+AG-UI deployments work seamlessly with front-end frameworks:
+
+- **[Dojo](https://github.com/ag-ui-protocol/ag-ui)**: Advanced UI for AG-UI agents
+- **Custom front-ends**: Any AG-UI compatible interface
+- **Web applications**: Direct integration with standardized protocol
+
 ## 📁 Pattern Examples
 
 This repository includes complete working examples for all patterns in the [`agno_agents/`](agno_agents/) directory:
@@ -133,6 +201,9 @@ This repository includes complete working examples for all patterns in the [`agn
 **Multi-Agent Examples (NEW!):**
 - `agno_agents/multi_agent_app_function_fastapi.py` - Pattern 1 with multiple agents
 - `agno_agents/multi_agent_app_variable_fastapi.py` - Pattern 3 with multiple agents
+
+**AG-UI Examples (NEW!):**
+- `agno_agents/financial_agent_agui_app.py` - AG-UI protocol example
 
 See the [agno_agents README](agno_agents/README.md) for detailed information about each example.
 
